@@ -1,5 +1,5 @@
 // Service Worker — La Regola del Gusto
-const CACHE = 'regola-del-gusto-v1';
+const CACHE = 'regola-del-gusto-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -8,7 +8,8 @@ const ASSETS = [
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/maskable-512.png'
+  './icons/maskable-512.png',
+  './icons/og-image.png'
 ];
 
 self.addEventListener('install', (event) => {
