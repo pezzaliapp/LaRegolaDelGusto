@@ -4,8 +4,45 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="La Regola del Gusto — un saggio interattivo sulla bellezza, da David Hume alla spiegazione evolutiva di Darwin." />
-  <meta name="theme-color" content="#0f0d0a" />
+  <meta name="theme-color" content="#0f0d0a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f7f2e8" media="(prefers-color-scheme: light)" />
+  <meta name="color-scheme" content="dark light" />
   <title>La Regola del Gusto</title>
+
+  <!-- Imposta il tema prima del paint per evitare il lampo di colore -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.setAttribute('data-theme', t);
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="it_IT" />
+  <meta property="og:site_name" content="La Regola del Gusto" />
+  <meta property="og:title" content="La Regola del Gusto" />
+  <meta property="og:description" content="Un saggio interattivo sulla bellezza, da David Hume alla spiegazione evolutiva di Darwin." />
+  <meta property="og:url" content="https://pezzaliapp.github.io/LaRegolaDelGusto/" />
+  <meta property="og:image" content="https://pezzaliapp.github.io/LaRegolaDelGusto/icons/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="La Regola del Gusto — un saggio interattivo sulla bellezza, da Hume a Darwin." />
+
+  <!-- Twitter card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="La Regola del Gusto" />
+  <meta name="twitter:description" content="Un saggio interattivo sulla bellezza, da David Hume alla spiegazione evolutiva di Darwin." />
+  <meta name="twitter:image" content="https://pezzaliapp.github.io/LaRegolaDelGusto/icons/og-image.png" />
+  <meta name="twitter:image:alt" content="La Regola del Gusto — un saggio interattivo sulla bellezza, da Hume a Darwin." />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Regola del Gusto" />
 
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -19,10 +56,23 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <a class="skip-link" href="#main">Salta al contenuto</a>
   <div class="grain" aria-hidden="true"></div>
 
   <!-- Indicatore di lettura -->
   <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+
+  <!-- Selettore tema chiaro/scuro -->
+  <button id="themeToggle" class="theme-toggle" type="button"
+          aria-pressed="false" title="Cambia tema chiaro/scuro">
+    <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
+    </svg>
+    <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-13a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1Zm0 14a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1ZM4 11h1a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2Zm15 0h1a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2ZM5.64 5.64a1 1 0 0 1 1.42 0l.7.7a1 1 0 0 1-1.41 1.42l-.71-.71a1 1 0 0 1 0-1.41Zm10.6 10.6a1 1 0 0 1 1.42 0l.7.7a1 1 0 0 1-1.41 1.42l-.71-.71a1 1 0 0 1 0-1.41Zm1.41-9.19-.71.71a1 1 0 0 1-1.41-1.42l.7-.7a1 1 0 1 1 1.42 1.41ZM7.05 16.95l-.71.71a1 1 0 0 1-1.42-1.41l.71-.71a1 1 0 0 1 1.42 1.41Z"/>
+    </svg>
+    <span class="visually-hidden">Cambia tema</span>
+  </button>
 
   <header class="hero" id="top">
     <p class="kicker reveal">Un saggio interattivo</p>
@@ -36,7 +86,7 @@
     <p class="scroll-hint reveal" style="--d:.7s">scorri &darr;</p>
   </header>
 
-  <main>
+  <main id="main">
     <section class="chapter" data-chapter="01">
       <p class="folio">1757</p>
       <p class="prose reveal">
@@ -84,6 +134,68 @@
         Il successo riproduttivo dipende dalla raccolta di punti adattativi;
         la bellezza ci dice quali sono e dove trovarli.
       </blockquote>
+    </section>
+
+    <section class="chapter notes" data-chapter="06" aria-labelledby="approfondisci-title">
+      <p class="folio">Approfondisci</p>
+      <h2 id="approfondisci-title" class="notes-title reveal">Tre nodi del discorso</h2>
+
+      <div class="note reveal">
+        <details>
+          <summary>
+            <span class="note-name">David Hume</span>
+            <span class="note-meta">1757 · <i>La regola del gusto</i></span>
+            <span class="note-mark" aria-hidden="true"></span>
+          </summary>
+          <div class="note-body">
+            <p>
+              Nel saggio <i>Of the Standard of Taste</i> Hume osserva che il giudizio
+              estetico non descrive una proprietà dell'oggetto, ma un sentimento di chi
+              guarda. Se la bellezza vive nella mente, resta però aperta la domanda di
+              come spiegare l'accordo dei «giudici esperti»: perché tante menti diverse
+              convergono spesso sulle stesse cose belle?
+            </p>
+          </div>
+        </details>
+      </div>
+
+      <div class="note reveal" style="--d:.08s">
+        <details>
+          <summary>
+            <span class="note-name">Charles Darwin</span>
+            <span class="note-meta">1859–1871 · selezione naturale e sessuale</span>
+            <span class="note-mark" aria-hidden="true"></span>
+          </summary>
+          <div class="note-body">
+            <p>
+              Con la selezione naturale, e poi con quella sessuale di <i>The Descent of
+              Man</i>, Darwin offre il terreno per una risposta: ciò che troviamo bello
+              tende a coincidere con ciò che, nella storia della specie, ha favorito
+              sopravvivenza e riproduzione. Il giudizio di gusto diventa allora il segnale
+              affettivo di un vantaggio adattativo.
+            </p>
+          </div>
+        </details>
+      </div>
+
+      <div class="note reveal" style="--d:.16s">
+        <details>
+          <summary>
+            <span class="note-name">Estetica evolutiva</span>
+            <span class="note-meta">la bellezza come bussola</span>
+            <span class="note-mark" aria-hidden="true"></span>
+          </summary>
+          <div class="note-body">
+            <p>
+              La percezione del bello varia tra specie, individui e momenti, perché varia
+              ciò che è vantaggioso: nicchie, bisogni, fame, fasi della vita. In questa
+              lettura la bellezza non è un capriccio soggettivo né una qualità fissa delle
+              cose, ma una bussola che indica dove si trovano i «punti adattativi» da
+              raccogliere.
+            </p>
+          </div>
+        </details>
+      </div>
     </section>
   </main>
 

@@ -7,9 +7,37 @@
   --accent:    #c8a35a;   /* oro caldo */
   --accent-2:  #9c5a3c;   /* terracotta */
   --line:      rgba(200,163,90,.18);
+  --glow:      #1c1813;
   --display: "Cormorant Garamond", Georgia, serif;
   --body:    "EB Garamond", Georgia, serif;
   --maxw: 44rem;
+}
+
+/* ---- TEMA CHIARO ---- */
+/* applicato sia su scelta esplicita sia seguendo le preferenze di sistema */
+:root[data-theme="light"] {
+  --bg:        #f7f2e8;
+  --bg-soft:   #efe6d6;
+  --ink:       #2b2117;
+  --ink-dim:   #564a3a;
+  --ink-faint: #837762;
+  --accent:    #8a5a16;   /* oro scurito per contrasto AA su fondo chiaro */
+  --accent-2:  #8a4327;   /* terracotta scurita */
+  --line:      rgba(138,90,22,.22);
+  --glow:      #fffaf0;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg:        #f7f2e8;
+    --bg-soft:   #efe6d6;
+    --ink:       #2b2117;
+    --ink-dim:   #564a3a;
+    --ink-faint: #837762;
+    --accent:    #8a5a16;
+    --accent-2:  #8a4327;
+    --line:      rgba(138,90,22,.22);
+    --glow:      #fffaf0;
+  }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -18,7 +46,7 @@ html { scroll-behavior: smooth; }
 
 body {
   background:
-    radial-gradient(120% 80% at 50% -10%, #1c1813 0%, var(--bg) 55%) fixed,
+    radial-gradient(120% 80% at 50% -10%, var(--glow) 0%, var(--bg) 55%) fixed,
     var(--bg);
   color: var(--ink);
   font-family: var(--body);
@@ -27,6 +55,13 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  transition: background-color .4s ease, color .4s ease;
+}
+
+/* La grana è pensata per il fondo scuro: la attenuiamo sul tema chiaro */
+:root[data-theme="light"] .grain { opacity: .03; mix-blend-mode: multiply; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .grain { opacity: .03; mix-blend-mode: multiply; }
 }
 
 /* Grana fotografica sottile */
@@ -150,6 +185,106 @@ main { position: relative; z-index: 2; }
 }
 .install-btn:hover { background: var(--accent); color: var(--bg); }
 
+/* ---- ACCESSIBILITÀ ---- */
+.visually-hidden {
+  position: absolute !important; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: fixed; top: -100%; left: 1rem; z-index: 50;
+  background: var(--bg-soft); color: var(--accent);
+  font-family: var(--body); font-size: 1rem;
+  padding: .7rem 1.2rem; border-radius: 8px;
+  border: 1px solid var(--accent); text-decoration: none;
+}
+.skip-link:focus { top: 1rem; }
+
+/* Focus visibile e coerente su tutto ciò che è interattivo */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---- TOGGLE TEMA ---- */
+.theme-toggle {
+  position: fixed; top: 1rem; right: 1rem; z-index: 40;
+  width: 2.8rem; height: 2.8rem; display: grid; place-items: center;
+  cursor: pointer; color: var(--accent);
+  background: color-mix(in srgb, var(--bg-soft) 80%, transparent);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border: 1px solid var(--line); border-radius: 999px;
+  transition: color .25s ease, border-color .25s ease, transform .25s ease;
+}
+.theme-toggle:hover { color: var(--ink); border-color: var(--accent); transform: translateY(-1px); }
+.theme-toggle svg { display: block; }
+/* Di default (tema scuro) mostriamo la luna; al chiaro il sole */
+.theme-toggle .icon-sun { display: none; }
+:root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+:root[data-theme="light"] .theme-toggle .icon-sun  { display: block; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .theme-toggle .icon-moon { display: none; }
+  :root:not([data-theme]) .theme-toggle .icon-sun  { display: block; }
+}
+
+/* ---- SEZIONE APPROFONDISCI ---- */
+.notes-title {
+  font-family: var(--display); font-weight: 500; font-style: italic;
+  font-size: clamp(1.6rem, 1rem + 2.4vw, 2.4rem);
+  line-height: 1.15; color: var(--ink); margin-bottom: 2.4rem;
+}
+.note { border-top: 1px solid var(--line); }
+.note:last-child { border-bottom: 1px solid var(--line); }
+
+.note details { padding: 0; }
+.note summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+  padding: 1.3rem .2rem;
+  position: relative;
+}
+.note summary::-webkit-details-marker { display: none; }
+.note-name {
+  font-family: var(--display); font-weight: 500;
+  font-size: clamp(1.35rem, 1rem + 1.6vw, 1.9rem);
+  color: var(--accent);
+}
+.note-meta {
+  font-family: var(--body); font-size: .9rem; letter-spacing: .03em;
+  color: var(--ink-faint);
+}
+.note-mark {
+  margin-left: auto; flex: none; position: relative;
+  width: 1.1rem; height: 1.1rem; align-self: center;
+}
+.note-mark::before,
+.note-mark::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 1.1rem; height: 2px; background: var(--accent);
+  transform: translate(-50%, -50%);
+  transition: transform .3s cubic-bezier(.2,.7,.2,1), opacity .3s ease;
+}
+.note-mark::after { transform: translate(-50%, -50%) rotate(90deg); }
+.note details[open] .note-mark::after { transform: translate(-50%, -50%) rotate(0); opacity: 0; }
+
+.note-body > p {
+  color: var(--ink-dim);
+  padding: 0 .2rem 1.6rem;
+  max-width: 38rem;
+}
+/* Apertura morbida del contenuto (disattivata con prefers-reduced-motion) */
+.note details[open] .note-body {
+  animation: note-in .45s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes note-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* ---- REVEAL ON SCROLL ---- */
 .reveal {
   opacity: 0; transform: translateY(22px);
@@ -161,5 +296,8 @@ main { position: relative; z-index: 2; }
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1 !important; transform: none !important; transition: none; }
   .scroll-hint { animation: none; }
+  .note details[open] .note-body { animation: none; }
+  .note-mark::before, .note-mark::after { transition: none; }
   html { scroll-behavior: auto; }
+  body { transition: none; }
 }
