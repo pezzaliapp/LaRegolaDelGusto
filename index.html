@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="La Regola del Gusto — un saggio interattivo sulla bellezza, da David Hume alla spiegazione evolutiva di Darwin." />
+  <meta name="theme-color" content="#0f0d0a" />
+  <title>La Regola del Gusto</title>
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+
+  <!-- Tipografia editoriale: display serif + corpo serif raffinato -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- Indicatore di lettura -->
+  <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+
+  <header class="hero" id="top">
+    <p class="kicker reveal">Un saggio interattivo</p>
+    <h1 class="title">
+      <span class="reveal" style="--d:.1s">La&nbsp;Regola</span>
+      <span class="reveal serif-i" style="--d:.25s">del&nbsp;Gusto</span>
+    </h1>
+    <p class="lede reveal" style="--d:.45s">
+      Sulla bellezza, da David Hume alla spiegazione evolutiva di Darwin.
+    </p>
+    <p class="scroll-hint reveal" style="--d:.7s">scorri &darr;</p>
+  </header>
+
+  <main>
+    <section class="chapter" data-chapter="01">
+      <p class="folio">1757</p>
+      <p class="prose reveal">
+        Nel 1757, in un libro intitolato <em>La regola del gusto</em>, David Hume
+        affermò che la bellezza è negli occhi di chi guarda.
+      </p>
+      <blockquote class="pull reveal">
+        «La bellezza non è una qualità delle cose: essa esiste soltanto nella mente
+        che le contempla, e ogni mente percepisce una diversa bellezza.»
+        <cite>— David Hume</cite>
+      </blockquote>
+    </section>
+
+    <section class="chapter" data-chapter="02">
+      <p class="folio">La domanda</p>
+      <p class="prose reveal">
+        Ciò solleva inevitabilmente una domanda:
+      </p>
+      <p class="question reveal" style="--d:.15s">
+        perché chi guarda vede <em>proprio quella</em> bellezza?
+      </p>
+    </section>
+
+    <section class="chapter" data-chapter="03">
+      <p class="folio">Un secolo dopo</p>
+      <p class="prose reveal">
+        Con la teoria dell'evoluzione per selezione naturale, Darwin gettò le basi
+        per una spiegazione psicologica: la bellezza è la percezione dei benefici
+        offerti dal punto di vista adattativo — come il beneficio che possiamo trarre
+        mangiando <em>questa</em> mela o uscendo con <em>quella</em> persona.
+      </p>
+    </section>
+
+    <section class="chapter" data-chapter="04">
+      <p class="folio">La percezione muta</p>
+      <p class="prose reveal">
+        Tale percezione differisce da una specie all'altra, da un individuo all'altro,
+        persino da un momento all'altro, a seconda delle esigenze e delle nicchie occupate.
+      </p>
+    </section>
+
+    <section class="chapter closing" data-chapter="05">
+      <p class="folio">La bussola</p>
+      <blockquote class="pull big reveal">
+        Il successo riproduttivo dipende dalla raccolta di punti adattativi;
+        la bellezza ci dice quali sono e dove trovarli.
+      </blockquote>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <a href="#top" class="back">↑ Torna in cima</a>
+    <p class="sig">La Regola del Gusto · alessandropezzali</p>
+    <p class="install-note" id="installNote" hidden>
+      <button id="installBtn" class="install-btn">Installa l'app</button>
+    </p>
+  </footer>
+
+  <script src="js/app.js" defer></script>
+</body>
+</html>
