@@ -1,50 +1,50 @@
-# La Regola del Gusto
+# Vàghezza
 
-Un saggio interattivo sulla bellezza — da David Hume alla spiegazione evolutiva di Darwin.
-PWA installabile, funzionante offline, ottimizzata per la lettura su mobile e desktop.
+Un campo di luce che cambia volto a seconda di ciò di cui hai bisogno.
 
-> «La bellezza non è una qualità delle cose: essa esiste soltanto nella mente che le contempla, e ogni mente percepisce una diversa bellezza.» — David Hume, *La regola del gusto*, 1757
+Le forme non cambiano mai. Cambia solo il tuo stato interno. Sposta il tuo stato fra
+quattro bisogni e lo stesso campo si re-illumina: ciò che ti offre un beneficio diventa
+luminoso, caldo, attraente, sonoro; il resto si spegne. Nulla viene aggiunto o tolto —
+cambia soltanto ciò che ti appare bello.
 
-## Caratteristiche
+La bellezza non descrive il mondo: indica dove andare. È una bussola.
 
-- **PWA completa**: manifest, service worker, installabile e fruibile offline.
-- **Estetica editoriale**: tipografia serif (Cormorant Garamond + EB Garamond), palette calda oro/terracotta su fondo scuro.
-- **Lettura immersiva**: rivelazioni allo scroll, barra di avanzamento, micro-interazioni.
-- **Zero dipendenze e zero build**: solo HTML, CSS e JavaScript statici.
+## Esperienza
 
-## Struttura
+- **Campo generativo** a tutto schermo, diverso a ogni visita (seed), interamente
+  sintetizzato a runtime: nessuna immagine esterna.
+- **Quadrante dello stato**: trascina il punto (o usa le frecce) per spostarti fra i
+  quattro bisogni. Il campo risponde in tempo reale.
+- **Bussola del gusto**: un ago che punta verso la regione più bella per lo stato
+  corrente e si riorienta quando il bisogno cambia.
+- **Due sguardi**: la rivelazione affianca due osservatori con bisogni diversi davanti
+  allo stesso campo — vedono bellezze diverse.
+- **Firma sonora**: un coro generativo che muta col tuo stato (attivabile, sintetizzato
+  via Web Audio).
+
+## Tecnica
+
+HTML/CSS/JS statico, zero build, zero framework. Canvas 2D con sprite pre-renderizzati
+per restare fluido a 60fps. PWA installabile e offline-first (manifest + service worker).
+Rispetta `prefers-reduced-motion`; controlli accessibili da tastiera con focus visibile.
 
 ```
 LaRegolaDelGusto/
 ├── index.html
 ├── manifest.webmanifest
 ├── sw.js
-├── css/
-│   └── style.css
-├── js/
-│   └── app.js
-└── icons/
-    ├── icon-192.png
-    ├── icon-512.png
-    └── maskable-512.png
+├── css/style.css
+├── js/app.js
+└── icons/  (icon-192, icon-512, maskable-512, og-image)
 ```
 
 ## Avvio in locale
-
-Serve un server statico (il service worker non funziona aprendo il file direttamente):
 
 ```bash
 python3 -m http.server 8000
 # poi apri http://localhost:8000
 ```
 
-## Pubblicazione su GitHub Pages
+Servito da root su GitHub Pages: <https://pezzaliapp.github.io/LaRegolaDelGusto/>
 
-1. Fai push del contenuto sul branch `main`.
-2. Vai su **Settings → Pages**.
-3. In *Build and deployment*, seleziona **Source: Deploy from a branch**, branch `main`, cartella `/ (root)`.
-4. L'app sarà disponibile su `https://pezzaliapp.github.io/LaRegolaDelGusto/`.
-
-## Licenza
-
-Testo e progetto © Alessandro Pezzali. Codice riutilizzabile liberamente per scopi personali.
+— alessandropezzali

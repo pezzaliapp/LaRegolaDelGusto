@@ -1,5 +1,5 @@
-// Service Worker — La Regola del Gusto
-const CACHE = 'regola-del-gusto-v2';
+// Service Worker — Vàghezza
+const CACHE = 'vaghezza-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -26,7 +26,8 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Strategia: cache-first per gli asset locali, network-first con fallback per il resto
+// Offline-first: cache per gli asset, network con riempimento cache per il resto
+// (così anche i font CDN vengono serviti offline dopo la prima visita).
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
