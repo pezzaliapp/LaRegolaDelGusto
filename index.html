@@ -2,210 +2,117 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="La Regola del Gusto — un saggio interattivo sulla bellezza, da David Hume alla spiegazione evolutiva di Darwin." />
-  <meta name="theme-color" content="#0f0d0a" media="(prefers-color-scheme: dark)" />
-  <meta name="theme-color" content="#f7f2e8" media="(prefers-color-scheme: light)" />
-  <meta name="color-scheme" content="dark light" />
-  <title>La Regola del Gusto</title>
-
-  <!-- Imposta il tema prima del paint per evitare il lampo di colore -->
-  <script>
-    (function () {
-      try {
-        var t = localStorage.getItem('theme');
-        if (t === 'light' || t === 'dark') {
-          document.documentElement.setAttribute('data-theme', t);
-        }
-      } catch (e) {}
-    })();
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Un campo di luce che cambia volto a seconda di ciò di cui hai bisogno. Esperienza generativa interattiva." />
+  <meta name="theme-color" content="#07070c" />
+  <meta name="color-scheme" content="dark" />
+  <title>Vàghezza</title>
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="it_IT" />
-  <meta property="og:site_name" content="La Regola del Gusto" />
-  <meta property="og:title" content="La Regola del Gusto" />
-  <meta property="og:description" content="Un saggio interattivo sulla bellezza, da David Hume alla spiegazione evolutiva di Darwin." />
+  <meta property="og:site_name" content="Vàghezza" />
+  <meta property="og:title" content="Vàghezza" />
+  <meta property="og:description" content="Lo stesso campo di luce. Bisogni diversi. Bellezze diverse. Un'esperienza generativa interattiva." />
   <meta property="og:url" content="https://pezzaliapp.github.io/LaRegolaDelGusto/" />
   <meta property="og:image" content="https://pezzaliapp.github.io/LaRegolaDelGusto/icons/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="La Regola del Gusto — un saggio interattivo sulla bellezza, da Hume a Darwin." />
+  <meta property="og:image:alt" content="Vàghezza — un campo di luce su fondo notturno." />
 
   <!-- Twitter card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="La Regola del Gusto" />
-  <meta name="twitter:description" content="Un saggio interattivo sulla bellezza, da David Hume alla spiegazione evolutiva di Darwin." />
+  <meta name="twitter:title" content="Vàghezza" />
+  <meta name="twitter:description" content="Lo stesso campo di luce. Bisogni diversi. Bellezze diverse." />
   <meta name="twitter:image" content="https://pezzaliapp.github.io/LaRegolaDelGusto/icons/og-image.png" />
-  <meta name="twitter:image:alt" content="La Regola del Gusto — un saggio interattivo sulla bellezza, da Hume a Darwin." />
+  <meta name="twitter:image:alt" content="Vàghezza — un campo di luce su fondo notturno." />
 
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Regola del Gusto" />
+  <meta name="apple-mobile-web-app-title" content="Vàghezza" />
 
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" href="icons/icon-192.png" />
 
-  <!-- Tipografia editoriale: display serif + corpo serif raffinato -->
+  <!-- Tipografia distintiva (display ottico + corpo), con fallback serif -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,400&family=Spectral:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <a class="skip-link" href="#main">Salta al contenuto</a>
-  <div class="grain" aria-hidden="true"></div>
+  <!-- Il campo generativo -->
+  <canvas id="field" aria-hidden="true"></canvas>
 
-  <!-- Indicatore di lettura -->
-  <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
-
-  <!-- Selettore tema chiaro/scuro -->
-  <button id="themeToggle" class="theme-toggle" type="button"
-          aria-pressed="false" title="Cambia tema chiaro/scuro">
-    <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-      <path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
-    </svg>
-    <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-      <path fill="currentColor" d="M12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-13a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1Zm0 14a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1ZM4 11h1a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2Zm15 0h1a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2ZM5.64 5.64a1 1 0 0 1 1.42 0l.7.7a1 1 0 0 1-1.41 1.42l-.71-.71a1 1 0 0 1 0-1.41Zm10.6 10.6a1 1 0 0 1 1.42 0l.7.7a1 1 0 0 1-1.41 1.42l-.71-.71a1 1 0 0 1 0-1.41Zm1.41-9.19-.71.71a1 1 0 0 1-1.41-1.42l.7-.7a1 1 0 1 1 1.42 1.41ZM7.05 16.95l-.71.71a1 1 0 0 1-1.42-1.41l.71-.71a1 1 0 0 1 1.42 1.41Z"/>
-    </svg>
-    <span class="visually-hidden">Cambia tema</span>
-  </button>
-
-  <header class="hero" id="top">
-    <p class="kicker reveal">Un saggio interattivo</p>
-    <h1 class="title">
-      <span class="reveal" style="--d:.1s">La&nbsp;Regola</span>
-      <span class="reveal serif-i" style="--d:.25s">del&nbsp;Gusto</span>
-    </h1>
-    <p class="lede reveal" style="--d:.45s">
-      Sulla bellezza, da David Hume alla spiegazione evolutiva di Darwin.
+  <!-- Descrizione testuale per screen reader e fallback -->
+  <main id="a11y" class="visually-hidden">
+    <h1>Vàghezza</h1>
+    <p>
+      Un campo di forme luminose riempie lo schermo. Ogni forma offre un beneficio
+      diverso. Spostando il tuo stato interno fra quattro bisogni, lo stesso campo si
+      re-illumina: le forme utili al bisogno attivo diventano luminose e calde, le altre
+      si spengono. Nulla viene aggiunto o tolto: cambia solo ciò che ti appare bello.
+      Usa i tasti freccia per spostare il tuo stato; premi Invio per vedere due osservatori
+      affiancati.
     </p>
-    <p class="scroll-hint reveal" style="--d:.7s">scorri &darr;</p>
-  </header>
-
-  <main id="main">
-    <section class="chapter" data-chapter="01">
-      <p class="folio">1757</p>
-      <p class="prose reveal">
-        Nel 1757, in un libro intitolato <em>La regola del gusto</em>, David Hume
-        affermò che la bellezza è negli occhi di chi guarda.
-      </p>
-      <blockquote class="pull reveal">
-        «La bellezza non è una qualità delle cose: essa esiste soltanto nella mente
-        che le contempla, e ogni mente percepisce una diversa bellezza.»
-        <cite>— David Hume</cite>
-      </blockquote>
-    </section>
-
-    <section class="chapter" data-chapter="02">
-      <p class="folio">La domanda</p>
-      <p class="prose reveal">
-        Ciò solleva inevitabilmente una domanda:
-      </p>
-      <p class="question reveal" style="--d:.15s">
-        perché chi guarda vede <em>proprio quella</em> bellezza?
-      </p>
-    </section>
-
-    <section class="chapter" data-chapter="03">
-      <p class="folio">Un secolo dopo</p>
-      <p class="prose reveal">
-        Con la teoria dell'evoluzione per selezione naturale, Darwin gettò le basi
-        per una spiegazione psicologica: la bellezza è la percezione dei benefici
-        offerti dal punto di vista adattativo — come il beneficio che possiamo trarre
-        mangiando <em>questa</em> mela o uscendo con <em>quella</em> persona.
-      </p>
-    </section>
-
-    <section class="chapter" data-chapter="04">
-      <p class="folio">La percezione muta</p>
-      <p class="prose reveal">
-        Tale percezione differisce da una specie all'altra, da un individuo all'altro,
-        persino da un momento all'altro, a seconda delle esigenze e delle nicchie occupate.
-      </p>
-    </section>
-
-    <section class="chapter closing" data-chapter="05">
-      <p class="folio">La bussola</p>
-      <blockquote class="pull big reveal">
-        Il successo riproduttivo dipende dalla raccolta di punti adattativi;
-        la bellezza ci dice quali sono e dove trovarli.
-      </blockquote>
-    </section>
-
-    <section class="chapter notes" data-chapter="06" aria-labelledby="approfondisci-title">
-      <p class="folio">Approfondisci</p>
-      <h2 id="approfondisci-title" class="notes-title reveal">Tre nodi del discorso</h2>
-
-      <div class="note reveal">
-        <details>
-          <summary>
-            <span class="note-name">David Hume</span>
-            <span class="note-meta">1757 · <i>La regola del gusto</i></span>
-            <span class="note-mark" aria-hidden="true"></span>
-          </summary>
-          <div class="note-body">
-            <p>
-              Nel saggio <i>Of the Standard of Taste</i> Hume osserva che il giudizio
-              estetico non descrive una proprietà dell'oggetto, ma un sentimento di chi
-              guarda. Se la bellezza vive nella mente, resta però aperta la domanda di
-              come spiegare l'accordo dei «giudici esperti»: perché tante menti diverse
-              convergono spesso sulle stesse cose belle?
-            </p>
-          </div>
-        </details>
-      </div>
-
-      <div class="note reveal" style="--d:.08s">
-        <details>
-          <summary>
-            <span class="note-name">Charles Darwin</span>
-            <span class="note-meta">1859–1871 · selezione naturale e sessuale</span>
-            <span class="note-mark" aria-hidden="true"></span>
-          </summary>
-          <div class="note-body">
-            <p>
-              Con la selezione naturale, e poi con quella sessuale di <i>The Descent of
-              Man</i>, Darwin offre il terreno per una risposta: ciò che troviamo bello
-              tende a coincidere con ciò che, nella storia della specie, ha favorito
-              sopravvivenza e riproduzione. Il giudizio di gusto diventa allora il segnale
-              affettivo di un vantaggio adattativo.
-            </p>
-          </div>
-        </details>
-      </div>
-
-      <div class="note reveal" style="--d:.16s">
-        <details>
-          <summary>
-            <span class="note-name">Estetica evolutiva</span>
-            <span class="note-meta">la bellezza come bussola</span>
-            <span class="note-mark" aria-hidden="true"></span>
-          </summary>
-          <div class="note-body">
-            <p>
-              La percezione del bello varia tra specie, individui e momenti, perché varia
-              ciò che è vantaggioso: nicchie, bisogni, fame, fasi della vita. In questa
-              lettura la bellezza non è un capriccio soggettivo né una qualità fissa delle
-              cose, ma una bussola che indica dove si trovano i «punti adattativi» da
-              raccogliere.
-            </p>
-          </div>
-        </details>
-      </div>
-    </section>
   </main>
 
-  <footer class="footer">
-    <a href="#top" class="back">↑ Torna in cima</a>
-    <p class="sig">La Regola del Gusto · alessandropezzali</p>
-    <p class="install-note" id="installNote" hidden>
-      <button id="installBtn" class="install-btn">Installa l'app</button>
+  <!-- Strato interfaccia -->
+  <div class="ui" id="ui">
+    <header class="brand">
+      <h2 class="brand-name" aria-hidden="true">Vàghezza</h2>
+    </header>
+
+    <!-- Suggerimento d'apertura, svanisce all'interazione -->
+    <p class="onboard" id="onboard" aria-hidden="true">
+      <span>trascina il punto</span><span class="dot">·</span><span>accarezza il campo</span>
     </p>
-  </footer>
+
+    <!-- Quadrante dello stato dell'osservatore -->
+    <div class="dial-wrap">
+      <div class="dial" id="dial"
+           role="slider"
+           tabindex="0"
+           aria-label="Il tuo stato interno: trascina o usa le frecce per spostarti fra i quattro bisogni"
+           aria-valuetext="stato in equilibrio">
+        <svg class="dial-svg" viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="dial-ring" cx="100" cy="100" r="86" />
+          <g id="anchors"></g>
+          <line class="dial-tether" id="tether" x1="100" y1="100" x2="100" y2="100" />
+          <circle class="dial-puck" id="puck" cx="100" cy="100" r="11" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- Controlli -->
+    <div class="controls">
+      <button id="soundBtn" class="ctl" type="button" aria-pressed="false"
+              aria-label="Attiva il suono">
+        <span class="ctl-glyph" aria-hidden="true">♪</span>
+        <span class="ctl-lab">suono</span>
+      </button>
+      <button id="revealBtn" class="ctl" type="button" aria-pressed="false"
+              aria-label="Mostra due osservatori affiancati">
+        <span class="ctl-glyph" aria-hidden="true">◫</span>
+        <span class="ctl-lab">due sguardi</span>
+      </button>
+      <button id="seedBtn" class="ctl" type="button"
+              aria-label="Rigenera il campo">
+        <span class="ctl-glyph" aria-hidden="true">✶</span>
+        <span class="ctl-lab">nuovo campo</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Chiusa della rivelazione -->
+  <p class="coda" id="coda" hidden>
+    Guardi lo stesso campo. Vedi ciò di cui hai bisogno.
+  </p>
+
+  <button id="installBtn" class="install-btn" type="button" hidden>installa</button>
 
   <script src="js/app.js" defer></script>
 </body>
