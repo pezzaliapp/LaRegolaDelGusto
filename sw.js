@@ -1,5 +1,5 @@
 // Service Worker — Vàghezza
-const CACHE = 'vaghezza-v7';
+const CACHE = 'vaghezza-v8';
 const ASSETS = [
   './',
   './index.html',
