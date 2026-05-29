@@ -220,6 +220,13 @@
         drawSprite(needSprites[dom], px, py, size * (1.0 + localB * 0.5), localB * 0.95);
         if (localB > 0.55) drawSprite(coreSprite, px, py, size * 0.34, (localB - 0.55) * 1.6);
       }
+      // climax: chi serve il bisogno trovato si fa più caldo e luminoso (solo luce)
+      if (climaxLevel > 0.01 && localB > 0.18 && mo.aff[climaxNeed] > 0.45) {
+        const cg = climaxLevel * localB;
+        drawSprite(needSprites[climaxNeed], px, py, size * (1.2 + cg * 0.6), cg * 0.7);
+        drawSprite(coreSprite, px, py, size * 0.45, cg * 0.85);
+      }
+
       if (localB > 0.55 && bright.length < 64) bright.push({ x: px, y: py, dom, b: localB });
     }
 
@@ -290,9 +297,10 @@
     let d = target - st.ang;
     while (d > Math.PI) d -= Math.PI * 2;
     while (d < -Math.PI) d += Math.PI * 2;
-    st.ang += d * (reduceMotion ? 1 : 0.08);
+    // nel climax l'ago si blocca: riorientamento più deciso
+    st.ang += d * (reduceMotion ? 1 : 0.08 + climaxLevel * 0.5);
 
-    const len = minSide * 0.12;
+    const len = minSide * (0.12 + climaxLevel * 0.05);
     const ex = ccx + Math.cos(st.ang) * len;
     const ey = ccy + Math.sin(st.ang) * len;
 
@@ -300,17 +308,17 @@
     ctx.globalCompositeOperation = 'lighter';
     // alone del perno
     ctx.globalAlpha = 0.9;
-    drawSprite(coreSprite, ccx, ccy, minSide * 0.018, 0.5);
+    drawSprite(coreSprite, ccx, ccy, minSide * (0.018 + climaxLevel * 0.02), 0.5 + climaxLevel * 0.4);
     // ago
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.5 + climaxLevel * 0.45;
     ctx.strokeStyle = 'rgba(244,200,121,0.9)';
-    ctx.lineWidth = 1.4;
+    ctx.lineWidth = 1.4 + climaxLevel * 1.2;
     ctx.beginPath();
     ctx.moveTo(ccx, ccy);
     ctx.lineTo(ex, ey);
     ctx.stroke();
     // punta
-    drawSprite(coreSprite, ex, ey, minSide * 0.012, 0.9);
+    drawSprite(coreSprite, ex, ey, minSide * (0.012 + climaxLevel * 0.012), 0.9);
     ctx.restore();
   }
 
@@ -337,6 +345,12 @@
         const pull = Math.max(0, 0.34 - d) * mo.bSmooth * 0.5;
         tx += (ndx / d) * pull;
         ty += (ndy / d) * pull;
+      }
+
+      // climax: le forme belle convergono dolcemente verso il centro (no in reduced-motion)
+      if (climaxLevel > 0.01 && !reduceMotion) {
+        tx += (0.5 - (mo.bx + mo.ox)) * climaxLevel * mo.bSmooth * 0.5;
+        ty += (0.5 - (mo.by + mo.oy)) * climaxLevel * mo.bSmooth * 0.5;
       }
 
       mo.vx += (tx - mo.ox) * 0.04;
@@ -378,6 +392,45 @@
   let last = 0, tSec = 0, revealMix = 0;
   let revealOn = false;
 
+  /* ---------- climax di allineamento -------------------------------------------------
+     Quando lo stato è fortemente allineato a UN solo bisogno (vicino a un vertice,
+     poca ambiguità) e lo mantieni per qualche istante, il campo entra in "pienezza":
+     le forme belle convergono e si intensificano, la bussola si blocca decisa, la voce
+     del bisogno emerge, lo sfondo satura. Raro e meritato: serve attesa + cooldown. */
+  let climaxLevel = 0;     // 0..1, intensità eased (anche per reduced-motion)
+  let climaxNeed = 0;      // bisogno "trovato"
+  let climaxActive = false;
+  let alignTimer = 0, climaxTimer = 0, climaxCooldown = 0;
+
+  function updateClimax(dt) {
+    const dom = dominantNeed();
+    const w0 = weights[dom];
+    let w1 = 0;
+    for (let i = 0; i < N; i++) if (i !== dom && weights[i] > w1) w1 = weights[i];
+    const aligned = w0 > 0.60 && (w0 - w1) > 0.34;   // vicino a un vertice, bassa ambiguità
+
+    if (climaxCooldown > 0) climaxCooldown -= dt;
+
+    if (!climaxActive) {
+      if (aligned && climaxCooldown <= 0 && revealMix < 0.5) {
+        alignTimer += dt;
+        if (alignTimer >= 1.4) { climaxActive = true; climaxNeed = dom; climaxTimer = 0; }
+      } else {
+        alignTimer = Math.max(0, alignTimer - dt * 2);  // l'attesa decade se vacilli
+      }
+    } else {
+      climaxTimer += dt;
+      if (!aligned || dom !== climaxNeed || climaxTimer > 5 || revealMix > 0.5) {
+        climaxActive = false; climaxCooldown = 9; alignTimer = 0;
+      }
+    }
+
+    // salita e discesa entrambe morbide: nessuna intensificazione brusca
+    const target = climaxActive ? 1 : 0;
+    climaxLevel += (target - climaxLevel) * (target > climaxLevel ? 0.022 : 0.016);
+    if (climaxLevel < 0.001) climaxLevel = 0;
+  }
+
   // attività dell'utente: se resta inattivo, lo stato deriva da solo (anti-noia + attract mode)
   let lastInteract = 0;            // 0 all'avvio → parte subito in deriva, finché non tocchi
   const IDLE_MS = 5200;
@@ -395,6 +448,8 @@
       const ty = Math.sin(a * 1.37 + 1.1) * 0.7;
       applyPuck(puck.x + (tx - puck.x) * 0.012, puck.y + (ty - puck.y) * 0.012);
     }
+
+    updateClimax(dt);
 
     // sfondo: notte con un lieve respiro al centro
     paintBackground();
@@ -452,8 +507,10 @@
     let dh = NEEDS[dom].hue - bgHue;
     while (dh > 180) dh -= 360; while (dh < -180) dh += 360;
     bgHue = (bgHue + dh * 0.04 + 360) % 360;
-    bgSat += ((14 + (conc - 0.25) * 64) - bgSat) * 0.04;
-    const h = bgHue | 0, s = bgSat | 0;
+    // nel climax la notte arriva alla saturazione piena
+    const targetSat = 14 + (conc - 0.25) * 64 + climaxLevel * 36;
+    bgSat += (targetSat - bgSat) * 0.04;
+    const h = bgHue | 0, s = Math.min(96, bgSat) | 0;
 
     const g = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.42, Math.max(W, H) * 0.75);
     g.addColorStop(0, `hsl(${h},${s}%,9%)`);
@@ -560,13 +617,15 @@
     for (const mo of motes) energy += mo.bSmooth;
     energy = motes.length ? energy / motes.length : 0;
 
-    audio.master.gain.setTargetAtTime(0.09, now, 0.4);
+    audio.master.gain.setTargetAtTime(0.09 + climaxLevel * 0.05, now, 0.4);
     for (let i = 0; i < N; i++) {
       // ogni voce segue il peso del proprio bisogno, modulata dall'energia
-      const g = weights[i] * (0.18 + 0.6 * energy);
+      let g = weights[i] * (0.18 + 0.6 * energy);
+      // climax: la voce del bisogno trovato emerge in primo piano
+      if (i === climaxNeed) g += climaxLevel * 0.22;
       audio.voices[i].g.gain.setTargetAtTime(g, now, 0.25);
     }
-    audio.shimmer.gain.setTargetAtTime(Math.max(0, energy - 0.35) * 0.12, now, 0.5);
+    audio.shimmer.gain.setTargetAtTime(Math.max(0, energy - 0.35) * 0.12 + climaxLevel * 0.10, now, 0.5);
   }
 
   function toggleSound() {
