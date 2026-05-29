@@ -147,10 +147,20 @@
   /* ---------- puntatore (mouse / dito) ------------------------------------------- */
   const pointer = { x: -1, y: -1, active: false, vis: false };
   let ripples = [];
+  let blooms = [];         // fioriture spontanee: una forma bella che sboccia
+  let bloomTimer = 2.5;
 
   function smoothstep(a, b, x) {
     const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
     return t * t * (3 - 2 * t);
+  }
+
+  // campo di correnti: un flusso coerente e lento, così le forme vorticano insieme
+  // invece di tremolare ciascuna nel proprio cerchietto (x, y normalizzati 0..1)
+  function flowField(x, y, t) {
+    const a = Math.sin(x * 6.1 + t * 0.16) + Math.cos(y * 5.0 - t * 0.12);
+    const b = Math.cos(x * 4.6 - t * 0.10) + Math.sin(y * 5.7 + t * 0.14);
+    return { x: Math.cos(a * 1.6 + b * 0.7), y: Math.sin(b * 1.4 - a * 0.5) };
   }
 
   /* ---------- calcolo della bellezza e disegno del campo ------------------------- */
@@ -161,6 +171,7 @@
     const baseScale = minSide * (reduceMotion ? 0.052 : 0.058);
 
     let cxAcc = 0, cyAcc = 0, bAcc = 0;  // per la bussola (centroide pesato sulla bellezza)
+    const bright = [];                   // luci accese, per tessere le costellazioni
 
     ctx.globalCompositeOperation = 'lighter';
 
@@ -208,6 +219,35 @@
       if (localB > 0.02) {
         drawSprite(needSprites[dom], px, py, size * (1.0 + localB * 0.5), localB * 0.95);
         if (localB > 0.55) drawSprite(coreSprite, px, py, size * 0.34, (localB - 0.55) * 1.6);
+      }
+      if (localB > 0.55 && bright.length < 64) bright.push({ x: px, y: py, dom, b: localB });
+    }
+
+    // costellazioni: fili tenui fra luci vicine, si ricompongono a ogni stato
+    if (bright.length > 1) {
+      const maxD = minSide * 0.16;
+      ctx.lineWidth = 0.8;
+      for (let i = 0; i < bright.length; i++) {
+        for (let j = i + 1; j < bright.length; j++) {
+          const A = bright[i], B = bright[j];
+          const d = Math.hypot(A.x - B.x, A.y - B.y);
+          if (d >= maxD) continue;
+          const a = (1 - d / maxD) * 0.20 * Math.min(A.b, B.b);
+          if (a < 0.012) continue;
+          ctx.globalAlpha = a;
+          ctx.strokeStyle = `hsla(${NEEDS[A.dom].hue},80%,72%,1)`;
+          ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // fioriture spontanee (coordinate normalizzate → valide in ogni riquadro)
+    if (interactive) {
+      for (const bl of blooms) {
+        const bx = rx + bl.nx * rw, by = ry + bl.ny * rh;
+        const rr = Math.max(2, bl.t * minSide * 0.2);
+        drawSprite(needSprites[bl.dom], bx, by, rr, Math.sin(bl.t * Math.PI) * 0.5);
       }
     }
 
@@ -279,11 +319,13 @@
     for (let m = 0; m < motes.length; m++) {
       const mo = motes[m];
 
-      // deriva lenta e propria di ogni forma
+      // deriva: corrente condivisa + un soffio proprio, così il moto è coerente ma vario
       let tx = 0, ty = 0;
       if (!reduceMotion) {
-        tx = Math.sin(t * mo.dspeed + mo.dphase) * mo.damp;
-        ty = Math.cos(t * mo.dspeed * 0.9 + mo.dphase * 1.3) * mo.damp;
+        const f = flowField(mo.bx + mo.ox, mo.by + mo.oy, t);
+        const swirl = mo.damp * (2.0 + 1.2 * Math.sin(t * mo.dspeed + mo.dphase));
+        tx = f.x * swirl;
+        ty = f.y * swirl;
       }
 
       // attrazione verso il puntatore, proporzionale alla bellezza corrente
@@ -312,16 +354,47 @@
     // increspature
     for (const rp of ripples) rp.t += dt * 0.9;
     ripples = ripples.filter(r => r.t < 1);
+
+    // fioriture spontanee: ogni tanto una forma con alta bellezza sboccia da sola
+    bloomTimer -= dt;
+    if (bloomTimer <= 0 && !reduceMotion) {
+      bloomTimer = 2.2 + rnd() * 3.8;
+      let pick = null;
+      for (let tries = 0; tries < 8 && !pick; tries++) {
+        const c = motes[Math.floor(rnd() * motes.length)];
+        if (c && c.bSmooth > 0.45) pick = c;
+      }
+      if (pick) {
+        let dom = 0, v = -1;
+        for (let i = 0; i < N; i++) { const q = pick.aff[i] * weights[i]; if (q > v) { v = q; dom = i; } }
+        blooms.push({ nx: pick.bx + pick.ox, ny: pick.by + pick.oy, t: 0, dom });
+      }
+    }
+    for (const b of blooms) b.t += dt * 0.7;
+    blooms = blooms.filter(b => b.t < 1);
   }
 
   /* ---------- loop ---------------------------------------------------------------- */
   let last = 0, tSec = 0, revealMix = 0;
   let revealOn = false;
 
+  // attività dell'utente: se resta inattivo, lo stato deriva da solo (anti-noia + attract mode)
+  let lastInteract = 0;            // 0 all'avvio → parte subito in deriva, finché non tocchi
+  const IDLE_MS = 5200;
+  function markActive() { lastInteract = performance.now(); }
+
   function frame(now) {
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
     last = now;
     tSec += dt;
+
+    // deriva in idle: lo stato vaga lento su una traiettoria di Lissajous
+    if ((now - lastInteract) > IDLE_MS && !dragging && !reduceMotion && revealMix < 0.5) {
+      const a = now * 0.00010;
+      const tx = Math.sin(a) * 0.7;
+      const ty = Math.sin(a * 1.37 + 1.1) * 0.7;
+      applyPuck(puck.x + (tx - puck.x) * 0.012, puck.y + (ty - puck.y) * 0.012);
+    }
 
     // sfondo: notte con un lieve respiro al centro
     paintBackground();
@@ -371,10 +444,20 @@
     ctx.restore();
   }
 
+  let bgHue = 225, bgSat = 16;
   function paintBackground() {
+    // la notte si tinge appena della tinta del bisogno prevalente
+    const dom = dominantNeed();
+    const conc = Math.max(...weights);            // 0.25 (equilibrio) .. 1 (deciso)
+    let dh = NEEDS[dom].hue - bgHue;
+    while (dh > 180) dh -= 360; while (dh < -180) dh += 360;
+    bgHue = (bgHue + dh * 0.04 + 360) % 360;
+    bgSat += ((14 + (conc - 0.25) * 64) - bgSat) * 0.04;
+    const h = bgHue | 0, s = bgSat | 0;
+
     const g = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.42, Math.max(W, H) * 0.75);
-    g.addColorStop(0, '#11111d');
-    g.addColorStop(0.5, '#0a0a12');
+    g.addColorStop(0, `hsl(${h},${s}%,9%)`);
+    g.addColorStop(0.5, `hsl(${h},${Math.round(s * 0.55)}%,5%)`);
     g.addColorStop(1, '#06060a');
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
@@ -505,12 +588,14 @@
   function onPointerMove(e) {
     pointer.x = e.clientX; pointer.y = e.clientY;
     pointer.vis = true;
+    markActive();
     dismissOnboard();
   }
   function onPointerDown(e) {
     if (e.target.closest('.ui button') || e.target.closest('.dial')) return;
     pointer.x = e.clientX; pointer.y = e.clientY; pointer.vis = true; pointer.active = true;
     ripples.push({ x: e.clientX, y: e.clientY, t: 0, dom: dominantNeed() });
+    markActive();
     dismissOnboard();
   }
   function onPointerUp() { pointer.active = false; }
@@ -548,7 +633,8 @@
     const ny = ((clientY - rect.top) / rect.height) * 2 - 1;
     setPuck(nx, ny);
   }
-  function setPuck(nx, ny) {
+  // applica una posizione del puck senza congedare l'hint (usata anche dalla deriva in idle)
+  function applyPuck(nx, ny) {
     const len = Math.hypot(nx, ny);
     const max = 0.96;
     if (len > max) { nx = nx / len * max; ny = ny / len * max; }
@@ -564,15 +650,15 @@
     dial.setAttribute('aria-valuetext',
       Math.max(...weights) < 0.34 ? 'stato in equilibrio'
       : `bisogno prevalente: ${labels[dominantNeed()]}`);
-    dismissOnboard();
   }
+  function setPuck(nx, ny) { applyPuck(nx, ny); dismissOnboard(); }
 
   let dragging = false;
   dial.addEventListener('pointerdown', (e) => {
     dragging = true; dial.setPointerCapture(e.pointerId);
-    setPuckFromClient(e.clientX, e.clientY); e.preventDefault();
+    markActive(); setPuckFromClient(e.clientX, e.clientY); e.preventDefault();
   });
-  dial.addEventListener('pointermove', (e) => { if (dragging) setPuckFromClient(e.clientX, e.clientY); });
+  dial.addEventListener('pointermove', (e) => { if (dragging) { markActive(); setPuckFromClient(e.clientX, e.clientY); } });
   dial.addEventListener('pointerup', () => { dragging = false; });
   dial.addEventListener('pointercancel', () => { dragging = false; });
 
@@ -580,6 +666,7 @@
   dial.addEventListener('keydown', (e) => {
     const step = 0.16;
     let used = true;
+    markActive();
     switch (e.key) {
       case 'ArrowUp': setPuck(puck.x, puck.y - step); break;
       case 'ArrowDown': setPuck(puck.x, puck.y + step); break;
@@ -635,7 +722,7 @@
   buildSprites();
   buildGrain();
   buildField();
-  setPuck(0, 0);
+  applyPuck(0, 0);
 
   let resizeRaf = 0;
   window.addEventListener('resize', () => {
