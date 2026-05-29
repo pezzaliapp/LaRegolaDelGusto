@@ -72,8 +72,8 @@
   function buildField() {
     const area = window.innerWidth * window.innerHeight;
     // densità misurata, con tetto per device modesti
-    let count = Math.round(area / 13000);
-    count = Math.max(46, Math.min(reduceMotion ? 90 : 150, count));
+    let count = Math.round(area / 17000);
+    count = Math.max(40, Math.min(reduceMotion ? 70 : 110, count));
 
     motes = [];
     for (let i = 0; i < count; i++) {
@@ -95,14 +95,19 @@
         vx: 0, vy: 0,
         aff,
         primary,
-        r: 0.6 + rnd() * 1.7,    // raggio base (scalato col displaySize)
+        r: 0.7 + rnd() * 1.5,    // raggio base (scalato col displaySize)
+        // identità stabile della forma: uno "scheletro" riconoscibile, sempre lo stesso
+        sides: 3 + Math.floor(rnd() * 4),   // 3..6 raggi/petali
+        rot: rnd() * Math.PI * 2,
+        spin: (rnd() < 0.5 ? -1 : 1) * (0.05 + rnd() * 0.18),
         // parametri di deriva propri
         dphase: rnd() * Math.PI * 2,
         dspeed: 0.06 + rnd() * 0.16,
         damp: 0.012 + rnd() * 0.03,
         pulse: rnd() * Math.PI * 2,
         pulseSpd: 0.5 + rnd() * 1.1,
-        b: 0, bSmooth: 0         // bellezza per lo stato corrente
+        b: 0, bSmooth: 0,        // bellezza per lo stato corrente
+        wasLit: false            // per innescare il suono quando sboccia
       });
     }
   }
@@ -181,8 +186,8 @@
       // bellezza = quanto la forma serve il bisogno attivo
       let beauty = 0;
       for (let i = 0; i < N; i++) beauty += mo.aff[i] * w[i];
-      // contrasto: separa il bello dallo spento
-      beauty = smoothstep(0.16, 0.62, beauty);
+      // contrasto: separa nettamente il bello dallo spento
+      beauty = smoothstep(0.24, 0.62, beauty);
 
       // tinta dominante per lo stato corrente
       let dom = 0, domv = -1;
@@ -209,25 +214,19 @@
       cxAcc += px * wgt; cyAcc += py * wgt; bAcc += wgt;
 
       const pulse = reduceMotion ? 1 : (1 + 0.10 * Math.sin(t * mo.pulseSpd + mo.pulse) * (0.4 + localB));
-      const size = baseScale * mo.r * (0.42 + 1.15 * localB) * pulse;
+      const size = baseScale * mo.r * (0.7 + 0.5 * localB) * pulse;
 
-      // bagliore neutro: la forma esiste sempre, anche da "spenta"
-      const dimA = 0.10 + 0.06 * (1 - localB);
-      drawSprite(dimSprite, px, py, size * 0.85, dimA);
+      // la forma: stessa identità sempre, ma sboccia se serve il bisogno attivo
+      drawForm(mo, px, py, size, localB, dom, t);
 
-      // bagliore della bellezza: cresce con il beneficio, colorato dal bisogno servito
-      if (localB > 0.02) {
-        drawSprite(needSprites[dom], px, py, size * (1.0 + localB * 0.5), localB * 0.95);
-        if (localB > 0.55) drawSprite(coreSprite, px, py, size * 0.34, (localB - 0.55) * 1.6);
-      }
       // climax: chi serve il bisogno trovato si fa più caldo e luminoso (solo luce)
       if (climaxLevel > 0.01 && localB > 0.18 && mo.aff[climaxNeed] > 0.45) {
         const cg = climaxLevel * localB;
-        drawSprite(needSprites[climaxNeed], px, py, size * (1.2 + cg * 0.6), cg * 0.7);
-        drawSprite(coreSprite, px, py, size * 0.45, cg * 0.85);
+        drawSprite(needSprites[climaxNeed], px, py, size * (1.4 + cg * 0.6), cg * 0.7);
+        drawSprite(coreSprite, px, py, size * 0.5, cg * 0.85);
       }
 
-      if (localB > 0.55 && bright.length < 64) bright.push({ x: px, y: py, dom, b: localB });
+      if (localB > 0.5 && bright.length < 64) bright.push({ x: px, y: py, dom, b: localB });
     }
 
     // costellazioni: fili tenui fra luci vicine, si ricompongono a ogni stato
@@ -284,6 +283,54 @@
     if (alpha <= 0) return;
     ctx.globalAlpha = alpha;
     ctx.drawImage(sprite, x - size, y - size, size * 2, size * 2);
+  }
+
+  // disegna una forma con identità STABILE: uno scheletro a raggi sempre riconoscibile.
+  // Da spenta è un grigio chiuso e immobile; quando serve il bisogno attivo si apre,
+  // si scalda, si illumina — la "stessa cosa" che diventa bella. b in 0..1.
+  function drawForm(mo, px, py, size, b, dom, t) {
+    const hue = NEEDS[dom].hue;
+    const sides = mo.sides;
+    const rot = mo.rot + (reduceMotion ? 0 : t * mo.spin * (0.15 + 0.55 * b));
+    const R = size * (0.5 + 1.25 * b);           // chiuso da spento, aperto (sboccia) da bello
+
+    // alone caldo della bellezza — contenuto, così non annega tutto in una nebbia
+    if (b > 0.03) drawSprite(needSprites[dom], px, py, size * (0.8 + b * 0.4), b * b * 0.5);
+
+    // raggi dello scheletro (un solo path, efficiente)
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 0.7 + b * 1.3;
+    ctx.strokeStyle = b > 0.22
+      ? `hsla(${hue},92%,72%,${(0.12 + b * 0.5).toFixed(3)})`
+      : `rgba(150,160,188,${(0.10 + 0.08 * (1 - b)).toFixed(3)})`;
+    ctx.beginPath();
+    const sx = new Array(sides), sy = new Array(sides);
+    for (let k = 0; k < sides; k++) {
+      const a = rot + (k / sides) * Math.PI * 2;
+      sx[k] = px + Math.cos(a) * R; sy[k] = py + Math.sin(a) * R;
+      ctx.moveTo(px, py); ctx.lineTo(sx[k], sy[k]);
+    }
+    ctx.stroke();
+
+    // anello che chiude i petali: appare solo quando la forma è sbocciata
+    if (b > 0.4) {
+      ctx.globalAlpha = (b - 0.4) * 0.6;
+      ctx.beginPath();
+      ctx.moveTo(sx[0], sy[0]);
+      for (let k = 1; k < sides; k++) ctx.lineTo(sx[k], sy[k]);
+      ctx.closePath(); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // satelliti: punti che si accendono in punta a ogni raggio
+    for (let k = 0; k < sides; k++) {
+      if (b > 0.06) drawSprite(needSprites[dom], sx[k], sy[k], size * (0.12 + b * 0.16), b * 0.7);
+      else drawSprite(dimSprite, sx[k], sy[k], size * 0.12, 0.14);
+    }
+
+    // nucleo: nitido, è il cuore acceso della forma
+    if (b > 0.04) drawSprite(coreSprite, px, py, size * (0.16 + b * 0.3), 0.15 + b * 0.8);
+    else drawSprite(dimSprite, px, py, size * 0.18, 0.18);
   }
 
   // bussola: un ago sottile dal centro verso il centroide della bellezza
@@ -358,11 +405,23 @@
       mo.vx *= 0.9; mo.vy *= 0.9;
       mo.ox += mo.vx; mo.oy += mo.vy;
 
-      // bellezza smussata per la fisica audio/attrazione
+      // bellezza smussata per la fisica audio/attrazione (contrasto netto: bello o spento)
       let beauty = 0;
       for (let i = 0; i < N; i++) beauty += mo.aff[i] * weights[i];
-      beauty = smoothstep(0.16, 0.62, beauty);
+      beauty = smoothstep(0.24, 0.62, beauty);
       mo.bSmooth += (beauty - mo.bSmooth) * 0.08;
+
+      // suono a evento: quando una forma SBOCCIA (da spenta a bella), una campana
+      if (!mo.wasLit && mo.bSmooth > 0.55) {
+        mo.wasLit = true;
+        if (audio.on && Math.random() < 0.7) {
+          let dm = 0, dv = -1;
+          for (let i = 0; i < N; i++) { const q = mo.aff[i] * weights[i]; if (q > dv) { dv = q; dm = i; } }
+          playBell(dm, mo.bSmooth);
+        }
+      } else if (mo.wasLit && mo.bSmooth < 0.38) {
+        mo.wasLit = false;
+      }
     }
 
     // increspature
@@ -414,7 +473,7 @@
     if (!climaxActive) {
       if (aligned && climaxCooldown <= 0 && revealMix < 0.5) {
         alignTimer += dt;
-        if (alignTimer >= 1.4) { climaxActive = true; climaxNeed = dom; climaxTimer = 0; }
+        if (alignTimer >= 1.4) { climaxActive = true; climaxNeed = dom; climaxTimer = 0; playClimaxChord(dom); }
       } else {
         alignTimer = Math.max(0, alignTimer - dt * 2);  // l'attesa decade se vacilli
       }
@@ -429,6 +488,21 @@
     const target = climaxActive ? 1 : 0;
     climaxLevel += (target - climaxLevel) * (target > climaxLevel ? 0.022 : 0.016);
     if (climaxLevel < 0.001) climaxLevel = 0;
+  }
+
+  /* ---------- sussurro del bisogno: una parola che affiora quando uno stato domina --- */
+  const WHISPER_WORDS = ['calore', 'legame', 'riparo', 'oltre'];
+  let whisperNeed = -1;
+  function updateWhisper() {
+    const conc = Math.max(...weights);
+    const op = smoothstep(0.42, 0.72, conc);          // appare solo se un bisogno domina
+    const dom = dominantNeed();
+    if (op > 0.05 && dom !== whisperNeed) {
+      whisperNeed = dom;
+      whisperEl.textContent = WHISPER_WORDS[dom];
+      whisperEl.style.color = `hsl(${NEEDS[dom].hue}, 72%, 82%)`;
+    }
+    whisperEl.style.opacity = (revealMix > 0.5 ? 0 : op * 0.92).toFixed(3);
   }
 
   // attività dell'utente: se resta inattivo, lo stato deriva da solo (anti-noia + attract mode)
@@ -450,6 +524,7 @@
     }
 
     updateClimax(dt);
+    updateWhisper();
 
     // sfondo: notte con un lieve respiro al centro
     paintBackground();
@@ -469,7 +544,6 @@
     }
 
     drawCursor();
-    updateAudio(dt);
     requestAnimationFrame(frame);
   }
 
@@ -507,15 +581,15 @@
     let dh = NEEDS[dom].hue - bgHue;
     while (dh > 180) dh -= 360; while (dh < -180) dh += 360;
     bgHue = (bgHue + dh * 0.04 + 360) % 360;
-    // nel climax la notte arriva alla saturazione piena
-    const targetSat = 14 + (conc - 0.25) * 64 + climaxLevel * 36;
+    // la notte si tinge appena; nel climax un filo di più (mai un lavaggio pieno)
+    const targetSat = 10 + (conc - 0.25) * 30 + climaxLevel * 26;
     bgSat += (targetSat - bgSat) * 0.04;
-    const h = bgHue | 0, s = Math.min(96, bgSat) | 0;
+    const h = bgHue | 0, s = Math.min(70, bgSat) | 0;
 
     const g = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.42, Math.max(W, H) * 0.75);
-    g.addColorStop(0, `hsl(${h},${s}%,9%)`);
-    g.addColorStop(0.5, `hsl(${h},${Math.round(s * 0.55)}%,5%)`);
-    g.addColorStop(1, '#06060a');
+    g.addColorStop(0, `hsl(${h},${s}%,7%)`);
+    g.addColorStop(0.5, `hsl(${h},${Math.round(s * 0.5)}%,4.5%)`);
+    g.addColorStop(1, '#05050a');
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
     ctx.fillStyle = g;
@@ -566,15 +640,15 @@
   }
 
   /* ============================================================================
-     FIRMA SENSORIALE — un coro generativo che muta col tuo stato.
-     Ogni bisogno ha una voce (una nota di una scala pentatonica). Spostando lo
-     stato, cambia il volume di ciascuna voce: il campo, oltre che illuminarsi,
-     "suona" diverso. Tutto sintetizzato a runtime, niente file audio.
+     FIRMA SENSORIALE — il campo non ronza: SUONA quando qualcosa diventa bello.
+     Silenzio a riposo. Ogni volta che una forma sboccia (perché il tuo bisogno è
+     cambiato), una breve campana, intonata al bisogno servito. Nessun drone, nessun
+     loop: il suono è l'eco della bellezza che appare. Tutto sintetizzato a runtime.
      ========================================================================== */
-  const audio = { ctx: null, on: false, master: null, voices: [], shimmer: null };
-  // pentatonica calda (Hz) — una nota per bisogno + una di brillìo
-  const VOICE_HZ = [174.6, 220.0, 261.6, 329.6];
-  const SHIMMER_HZ = 523.25;
+  const audio = { ctx: null, on: false, master: null, lastBell: 0 };
+  // una radice consonante per bisogno + una pentatonica maggiore
+  const NEED_ROOT = [220.0, 261.63, 174.61, 329.63];   // A3, C4, F3, E4
+  const PENTA = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3];
 
   function initAudio() {
     if (audio.ctx) return;
@@ -586,54 +660,69 @@
     const master = ac.createGain();
     master.gain.value = 0.0;
     const lp = ac.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 1400; lp.Q.value = 0.5;
-    // un eco lieve per dare spazio
-    const delay = ac.createDelay(); delay.delayTime.value = 0.33;
-    const fb = ac.createGain(); fb.gain.value = 0.28;
-    const wet = ac.createGain(); wet.gain.value = 0.25;
+    lp.type = 'lowpass'; lp.frequency.value = 2600; lp.Q.value = 0.5;
+    // un eco lieve per dare spazio alle campane
+    const delay = ac.createDelay(); delay.delayTime.value = 0.34;
+    const fb = ac.createGain(); fb.gain.value = 0.30;
+    const wet = ac.createGain(); wet.gain.value = 0.30;
     master.connect(lp); lp.connect(ac.destination);
     lp.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(ac.destination);
     audio.master = master;
-
-    for (let i = 0; i < N; i++) {
-      const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = VOICE_HZ[i];
-      const det = ac.createOscillator(); det.type = 'sine'; det.frequency.value = VOICE_HZ[i] * 1.005;
-      const g = ac.createGain(); g.gain.value = 0;
-      osc.connect(g); det.connect(g); g.connect(master);
-      osc.start(); det.start();
-      audio.voices.push({ g, osc });
-    }
-    const sosc = ac.createOscillator(); sosc.type = 'triangle'; sosc.frequency.value = SHIMMER_HZ;
-    const sg = ac.createGain(); sg.gain.value = 0;
-    sosc.connect(sg); sg.connect(master); sosc.start();
-    audio.shimmer = sg;
   }
 
-  function updateAudio() {
+  // una parziale auto-inviluppata (si crea, suona, si autodistrugge: niente nodi fissi)
+  function spawnPartial(freq, peak, dur, type) {
+    const ac = audio.ctx, now = ac.currentTime;
+    const osc = ac.createOscillator(); osc.type = type || 'sine'; osc.frequency.value = freq;
+    const g = ac.createGain();
+    osc.connect(g); g.connect(audio.master);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(peak, now + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.start(now); osc.stop(now + dur + 0.05);
+  }
+
+  // una campana per il bisogno "need" (vel 0..1 = quanto è viva la fioritura)
+  function playBell(need, vel) {
     if (!audio.on || !audio.ctx) return;
     const now = audio.ctx.currentTime;
-    // energia complessiva di bellezza nel campo
-    let energy = 0;
-    for (const mo of motes) energy += mo.bSmooth;
-    energy = motes.length ? energy / motes.length : 0;
+    if (now - audio.lastBell < 0.07) return;          // anti-affollamento
+    audio.lastBell = now;
+    const root = NEED_ROOT[need];
+    const f = root * PENTA[Math.floor(Math.random() * PENTA.length)];
+    const v = 0.10 + vel * 0.16;
+    spawnPartial(f, v, 1.7, 'sine');
+    spawnPartial(f * 2, v * 0.28, 1.1, 'sine');        // armonica: timbro a campana
+  }
 
-    audio.master.gain.setTargetAtTime(0.09 + climaxLevel * 0.05, now, 0.4);
-    for (let i = 0; i < N; i++) {
-      // ogni voce segue il peso del proprio bisogno, modulata dall'energia
-      let g = weights[i] * (0.18 + 0.6 * energy);
-      // climax: la voce del bisogno trovato emerge in primo piano
-      if (i === climaxNeed) g += climaxLevel * 0.22;
-      audio.voices[i].g.gain.setTargetAtTime(g, now, 0.25);
-    }
-    audio.shimmer.gain.setTargetAtTime(Math.max(0, energy - 0.35) * 0.12 + climaxLevel * 0.10, now, 0.5);
+  // arpeggio breve quando si raggiunge il climax: la voce del bisogno emerge
+  function playClimaxChord(need) {
+    if (!audio.on || !audio.ctx) return;
+    const root = NEED_ROOT[need];
+    const ac = audio.ctx, now = ac.currentTime;
+    [0, 2, 4].forEach((deg, i) => {
+      const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = root * PENTA[deg];
+      const g = ac.createGain(); osc.connect(g); g.connect(audio.master);
+      const at = now + i * 0.13;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.linearRampToValueAtTime(0.16, at + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 2.2);
+      osc.start(at); osc.stop(at + 2.3);
+    });
   }
 
   function toggleSound() {
     initAudio();
     if (!audio.ctx) return;
     audio.on = !audio.on;
-    if (audio.on && audio.ctx.state === 'suspended') audio.ctx.resume();
-    if (!audio.on && audio.master) audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.2);
+    const now = audio.ctx.currentTime;
+    if (audio.on) {
+      if (audio.ctx.state === 'suspended') audio.ctx.resume();
+      audio.master.gain.setTargetAtTime(0.9, now, 0.1);
+      playBell(dominantNeed(), 0.6);             // un tocco di conferma all'accensione
+    } else {
+      audio.master.gain.setTargetAtTime(0, now, 0.2);
+    }
     soundBtn.setAttribute('aria-pressed', String(audio.on));
     soundBtn.setAttribute('aria-label', audio.on ? 'Disattiva il suono' : 'Attiva il suono');
   }
@@ -743,13 +832,14 @@
   const revealBtn = document.getElementById('revealBtn');
   const seedBtn = document.getElementById('seedBtn');
   const coda = document.getElementById('coda');
-  const onboard = document.getElementById('onboard');
+  const intro = document.getElementById('intro');
+  const whisperEl = document.getElementById('whisper');
 
   let onboardGone = false;
   function dismissOnboard() {
     if (onboardGone) return;
     onboardGone = true;
-    onboard.classList.add('gone');
+    intro.classList.add('gone');
   }
 
   function toggleReveal() {
