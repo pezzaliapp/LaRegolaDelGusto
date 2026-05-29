@@ -1,5 +1,5 @@
 // Service Worker — Vàghezza
-const CACHE = 'vaghezza-v5';
+const CACHE = 'vaghezza-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -26,22 +26,41 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Offline-first: cache per gli asset, network con riempimento cache per il resto
-// (così anche i font CDN vengono serviti offline dopo la prima visita).
+// Strategia mista:
+// - codice (HTML/JS/CSS/manifest) → NETWORK-FIRST: online prendi sempre l'ultima
+//   versione, offline ricadi sulla cache. Così gli aggiornamenti arrivano subito.
+// - asset statici (icone, font, immagini) → CACHE-FIRST: veloci e offline.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request)
+  const url = new URL(request.url);
+  const isCode =
+    request.mode === 'navigate' ||
+    /\.(?:html|js|css|webmanifest)$/.test(url.pathname);
+
+  if (isCode) {
+    event.respondWith(
+      fetch(request)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+          caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
           return res;
         })
-        .catch(() => caches.match('./index.html'));
-    })
-  );
+        .catch(() => caches.match(request).then((c) => c || caches.match('./index.html')))
+    );
+  } else {
+    event.respondWith(
+      caches.match(request).then((cached) =>
+        cached ||
+        fetch(request)
+          .then((res) => {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
+            return res;
+          })
+          .catch(() => cached)
+      )
+    );
+  }
 });

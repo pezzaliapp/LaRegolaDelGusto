@@ -106,8 +106,7 @@
         damp: 0.012 + rnd() * 0.03,
         pulse: rnd() * Math.PI * 2,
         pulseSpd: 0.5 + rnd() * 1.1,
-        b: 0, bSmooth: 0,        // bellezza per lo stato corrente
-        wasLit: false            // per innescare il suono quando sboccia
+        b: 0, bSmooth: 0         // bellezza per lo stato corrente
       });
     }
   }
@@ -410,18 +409,6 @@
       for (let i = 0; i < N; i++) beauty += mo.aff[i] * weights[i];
       beauty = smoothstep(0.24, 0.62, beauty);
       mo.bSmooth += (beauty - mo.bSmooth) * 0.08;
-
-      // suono a evento: quando una forma SBOCCIA (da spenta a bella), una campana
-      if (!mo.wasLit && mo.bSmooth > 0.55) {
-        mo.wasLit = true;
-        if (audio.on && Math.random() < 0.7) {
-          let dm = 0, dv = -1;
-          for (let i = 0; i < N; i++) { const q = mo.aff[i] * weights[i]; if (q > dv) { dv = q; dm = i; } }
-          playBell(dm, mo.bSmooth);
-        }
-      } else if (mo.wasLit && mo.bSmooth < 0.38) {
-        mo.wasLit = false;
-      }
     }
 
     // increspature
@@ -495,12 +482,15 @@
   let whisperNeed = -1;
   function updateWhisper() {
     const conc = Math.max(...weights);
-    const op = smoothstep(0.42, 0.72, conc);          // appare solo se un bisogno domina
+    const op = smoothstep(0.34, 0.62, conc);          // affiora quando un bisogno prende il sopravvento
     const dom = dominantNeed();
     if (op > 0.05 && dom !== whisperNeed) {
       whisperNeed = dom;
       whisperEl.textContent = WHISPER_WORDS[dom];
       whisperEl.style.color = `hsl(${NEEDS[dom].hue}, 72%, 82%)`;
+      playTone(dom, op);                              // un tono morbido quando entri nel bisogno
+    } else if (op <= 0.05) {
+      whisperNeed = -1;                                // tornando in equilibrio, riarmati per il prossimo
     }
     whisperEl.style.opacity = (revealMix > 0.5 ? 0 : op * 0.92).toFixed(3);
   }
@@ -648,7 +638,6 @@
   const audio = { ctx: null, on: false, master: null, lastBell: 0 };
   // una radice consonante per bisogno + una pentatonica maggiore
   const NEED_ROOT = [220.0, 261.63, 174.61, 329.63];   // A3, C4, F3, E4
-  const PENTA = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3];
 
   function initAudio() {
     if (audio.ctx) return;
@@ -670,45 +659,40 @@
     audio.master = master;
   }
 
-  // una parziale auto-inviluppata (si crea, suona, si autodistrugge: niente nodi fissi)
-  function spawnPartial(freq, peak, dur, type) {
-    const ac = audio.ctx, now = ac.currentTime;
-    const osc = ac.createOscillator(); osc.type = type || 'sine'; osc.frequency.value = freq;
+  // una voce morbida, auto-inviluppata: triangle filtrato, attacco dolce, lunga coda.
+  // Si crea, suona e si autodistrugge — niente oscillatori sempre attivi (niente drone).
+  function voice(freq, peak, when, dur) {
+    const ac = audio.ctx;
+    const osc = ac.createOscillator(); osc.type = 'triangle'; osc.frequency.value = freq;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.2;
     const g = ac.createGain();
-    osc.connect(g); g.connect(audio.master);
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.linearRampToValueAtTime(peak, now + 0.012);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-    osc.start(now); osc.stop(now + dur + 0.05);
+    osc.connect(lp); lp.connect(g); g.connect(audio.master);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.linearRampToValueAtTime(peak, when + 0.07);          // attacco morbido (no click)
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    osc.start(when); osc.stop(when + dur + 0.05);
   }
 
-  // una campana per il bisogno "need" (vel 0..1 = quanto è viva la fioritura)
-  function playBell(need, vel) {
+  // un tono caldo per il bisogno: fondamentale + quinta. Raro e consonante.
+  function playTone(need, vel) {
     if (!audio.on || !audio.ctx) return;
     const now = audio.ctx.currentTime;
-    if (now - audio.lastBell < 0.07) return;          // anti-affollamento
+    if (now - audio.lastBell < 0.3) return;                     // mai affollato → fluido
     audio.lastBell = now;
     const root = NEED_ROOT[need];
-    const f = root * PENTA[Math.floor(Math.random() * PENTA.length)];
-    const v = 0.10 + vel * 0.16;
-    spawnPartial(f, v, 1.7, 'sine');
-    spawnPartial(f * 2, v * 0.28, 1.1, 'sine');        // armonica: timbro a campana
+    const v = 0.08 + (vel || 0) * 0.06;
+    voice(root, v, now, 2.8);
+    voice(root * 1.5, v * 0.5, now + 0.05, 2.4);                // la quinta, più tenue
   }
 
-  // arpeggio breve quando si raggiunge il climax: la voce del bisogno emerge
+  // al climax una breve fioritura armonica (fondamentale, quinta, ottava), morbida
   function playClimaxChord(need) {
     if (!audio.on || !audio.ctx) return;
+    const now = audio.ctx.currentTime;
     const root = NEED_ROOT[need];
-    const ac = audio.ctx, now = ac.currentTime;
-    [0, 2, 4].forEach((deg, i) => {
-      const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = root * PENTA[deg];
-      const g = ac.createGain(); osc.connect(g); g.connect(audio.master);
-      const at = now + i * 0.13;
-      g.gain.setValueAtTime(0.0001, at);
-      g.gain.linearRampToValueAtTime(0.16, at + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, at + 2.2);
-      osc.start(at); osc.stop(at + 2.3);
-    });
+    voice(root, 0.10, now, 3.4);
+    voice(root * 1.5, 0.06, now + 0.18, 3.0);
+    voice(root * 2, 0.05, now + 0.40, 2.6);
   }
 
   function toggleSound() {
@@ -718,8 +702,8 @@
     const now = audio.ctx.currentTime;
     if (audio.on) {
       if (audio.ctx.state === 'suspended') audio.ctx.resume();
-      audio.master.gain.setTargetAtTime(0.9, now, 0.1);
-      playBell(dominantNeed(), 0.6);             // un tocco di conferma all'accensione
+      audio.master.gain.setTargetAtTime(0.8, now, 0.1);
+      playTone(dominantNeed(), 0.6);             // un tocco di conferma all'accensione
     } else {
       audio.master.gain.setTargetAtTime(0, now, 0.2);
     }
@@ -834,12 +818,14 @@
   const coda = document.getElementById('coda');
   const intro = document.getElementById('intro');
   const whisperEl = document.getElementById('whisper');
+  const brandEl = document.querySelector('.brand');
 
   let onboardGone = false;
   function dismissOnboard() {
     if (onboardGone) return;
     onboardGone = true;
     intro.classList.add('gone');
+    if (brandEl) brandEl.classList.add('gone');   // via il titolo fisso: parla l'esperienza
   }
 
   function toggleReveal() {

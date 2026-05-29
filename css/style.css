@@ -59,8 +59,9 @@ body {
 }
 .ui button, .ui [role="slider"] { pointer-events: auto; }  /* …tranne i controlli */
 
-/* Brand defilato: una firma, non un titolo invadente */
-.brand { text-align: left; }
+/* Brand defilato: una firma, non un titolo invadente. Svanisce appena interagisci. */
+.brand { text-align: left; transition: opacity 1.1s ease; }
+.brand.gone { opacity: 0; }
 .brand-name {
   font-family: var(--display);
   font-weight: 300; font-style: italic;
