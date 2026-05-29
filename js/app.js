@@ -500,19 +500,44 @@
   const IDLE_MS = 5200;
   function markActive() { lastInteract = performance.now(); }
 
+  /* ---------- modalità ambient (salvaschermo / loop autogenerativo) -----------------
+     Niente UI, schermo intero, lo stato vaga da solo e il campo si rigenera con seme
+     casuale a intervalli, con una dissolvenza morbida. Loop infinito, zero interazione. */
+  const ambient = { active: false, fade: 1, dir: 0, next: 0 };
+  const AMBIENT_INTERVAL = 210;    // ~3,5 minuti fra un campo e l'altro
+  const FADE_DUR = 2.4;            // durata della dissolvenza alla rigenerazione
+
+  function stepAmbient(dt) {
+    if (!ambient.active) return;
+    if (ambient.dir === 0 && tSec >= ambient.next) ambient.dir = -1;   // è ora: dissolvi
+    if (ambient.dir === -1) {
+      ambient.fade -= dt / FADE_DUR;
+      if (ambient.fade <= 0) {                                         // nero pieno → nuovo campo
+        ambient.fade = 0; ambient.dir = 1;
+        setSeed((Math.random() * 1e9) | 0); buildField(); buildGrain();
+      }
+    } else if (ambient.dir === 1) {
+      ambient.fade += dt / FADE_DUR;
+      if (ambient.fade >= 1) { ambient.fade = 1; ambient.dir = 0; ambient.next = tSec + AMBIENT_INTERVAL; }
+    }
+  }
+
   function frame(now) {
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
     last = now;
     tSec += dt;
 
     // deriva in idle: lo stato vaga lento su una traiettoria di Lissajous
+    // (in ambient l'ampiezza è maggiore: visita più bisogni e ogni tanto raggiunge il climax)
     if ((now - lastInteract) > IDLE_MS && !dragging && !reduceMotion && revealMix < 0.5) {
       const a = now * 0.00010;
-      const tx = Math.sin(a) * 0.7;
-      const ty = Math.sin(a * 1.37 + 1.1) * 0.7;
+      const amp = ambient.active ? 0.88 : 0.7;
+      const tx = Math.sin(a) * amp;
+      const ty = Math.sin(a * 1.37 + 1.1) * amp;
       applyPuck(puck.x + (tx - puck.x) * 0.012, puck.y + (ty - puck.y) * 0.012);
     }
 
+    stepAmbient(dt);
     updateClimax(dt);
     updateWhisper();
 
@@ -534,6 +559,16 @@
     }
 
     drawCursor();
+
+    // dissolvenza della rigenerazione ambient: l'intera scena va al nero e ritorna
+    if (ambient.active && ambient.fade < 1) {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1 - ambient.fade;
+      ctx.fillStyle = '#05050a';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
+
     requestAnimationFrame(frame);
   }
 
@@ -724,6 +759,7 @@
     dismissOnboard();
   }
   function onPointerDown(e) {
+    if (ambient.active) { exitAmbient(); return; }      // un tocco esce dal salvaschermo
     if (e.target.closest('.ui button') || e.target.closest('.dial')) return;
     pointer.x = e.clientX; pointer.y = e.clientY; pointer.vis = true; pointer.active = true;
     ripples.push({ x: e.clientX, y: e.clientY, t: 0, dom: dominantNeed() });
@@ -815,6 +851,7 @@
   const soundBtn = document.getElementById('soundBtn');
   const revealBtn = document.getElementById('revealBtn');
   const seedBtn = document.getElementById('seedBtn');
+  const ambientBtn = document.getElementById('ambientBtn');
   const coda = document.getElementById('coda');
   const intro = document.getElementById('intro');
   const whisperEl = document.getElementById('whisper');
@@ -847,6 +884,35 @@
     buildField(); buildGrain();
   });
 
+  /* ---------- modalità ambient: entra/esci --------------------------------------- */
+  function enterAmbient(tryFullscreen) {
+    if (ambient.active) return;
+    ambient.active = true;
+    ambient.fade = 1; ambient.dir = 0; ambient.next = tSec + AMBIENT_INTERVAL;
+    document.body.classList.add('ambient');
+    ambientBtn.setAttribute('aria-pressed', 'true');
+    dismissOnboard();
+    lastInteract = 0;                                   // comincia subito a vagare
+    if (tryFullscreen && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }
+  function exitAmbient() {
+    if (!ambient.active) return;
+    ambient.active = false; ambient.fade = 1; ambient.dir = 0;
+    document.body.classList.remove('ambient');
+    ambientBtn.setAttribute('aria-pressed', 'false');
+    markActive();
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  }
+  ambientBtn.addEventListener('click', () => enterAmbient(true));
+  // un tasto qualsiasi esce dal salvaschermo (il tocco è gestito in onPointerDown)
+  window.addEventListener('keydown', () => { if (ambient.active) exitAmbient(); });
+  // se si esce dallo schermo intero (Esc), esci anche dalla modalità ambient
+  document.addEventListener('fullscreenchange', () => {
+    if (ambient.active && !document.fullscreenElement) exitAmbient();
+  });
+
   /* ---------- avvio --------------------------------------------------------------- */
   setSeed(
     (location.hash && location.hash.length > 1)
@@ -866,6 +932,12 @@
   });
 
   requestAnimationFrame(frame);
+
+  // avvio automatico in ambient se l'URL lo chiede (kiosk / Plash / TV / cornici digitali):
+  // .../?ambient   — niente schermo intero qui (di solito il contenitore è già fullscreen)
+  if (/(?:[?&]|^)ambient\b/.test(location.search) || /\bambient\b/.test(location.hash)) {
+    enterAmbient(false);
+  }
 
   /* ---------- PWA: service worker + installazione -------------------------------- */
   if ('serviceWorker' in navigator) {

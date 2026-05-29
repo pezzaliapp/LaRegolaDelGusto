@@ -196,6 +196,19 @@ body {
 }
 .coda.show { opacity: 1; }
 
+/* ---- MODALITÀ AMBIENT (salvaschermo / loop autogenerativo) ----
+   Nasconde ogni comando; resta il campo e il sussurro del bisogno. */
+body.ambient { cursor: none; }
+body.ambient .brand,
+body.ambient .intro,
+body.ambient .dial-wrap,
+body.ambient .controls,
+body.ambient .install-btn {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 1.2s ease;
+}
+
 /* ---- INSTALLA ---- */
 .install-btn {
   position: fixed; right: clamp(1rem,3vw,2rem); top: clamp(1rem,3vw,2rem);
